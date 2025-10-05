@@ -1,10 +1,8 @@
 import * as vscode from 'vscode';
 import { CssDocumentColorProvider, RGBADocumentColorProvider, RGBDocumentColorProvider } from './colorProviders';
-import { previewFormula } from './formulas';
+import { previewFormula, documentCaches } from './formulas';
 
 let decorationType: vscode.TextEditorDecorationType;
-
-const formulaRangesMap: Map<string, vscode.Range[]> = new Map();
 
 function findAllFormulaPositions(text: string): Array<{ start: number, end: number }> {
 	const results: Array<{ start: number, end: number }> = [];
@@ -44,13 +42,13 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(
 		vscode.languages.registerHoverProvider('python', {
 			provideHover(document, position, token) {
-				const ranges = formulaRangesMap.get(document.uri.toString());
-				if (!ranges) return null;
-				for (const range of ranges) {
+				const cachedData = documentCaches.get(document.uri.toString());
+				if (!cachedData) return null;
+				for (const range of cachedData.ranges) {
 					if (range.contains(position)) {
 						const text = document.getText(range);
 						const markdown = new vscode.MarkdownString();
-						markdown.appendCodeblock(previewFormula(text), 'plaintext');
+						markdown.appendCodeblock(previewFormula(text, cachedData), 'plaintext');
 						return new vscode.Hover(markdown);
 					}
 				}
@@ -69,7 +67,7 @@ export function activate(context: vscode.ExtensionContext) {
 			}
 		}),	// 清理关闭的文档数据
 		vscode.workspace.onDidCloseTextDocument(doc => {
-			formulaRangesMap.delete(doc.uri.toString());
+			documentCaches.delete(doc.uri.toString());
 		}),
 		// 添加颜色选择器
 		vscode.languages.registerColorProvider('python', new RGBADocumentColorProvider()),
@@ -96,7 +94,24 @@ function triggerUpdateDecorations(document: vscode.TextDocument) {
 		return new vscode.Range(startPos, endPos);
 	});
 
-	formulaRangesMap.set(document.uri.toString(), ranges);
+	// # level = range(1, 10, 2)
+	// # atk = range(5, 6)
+	const formulaConfigRegex = /#\s*([a-zA-Z_0-9\.\[\]]+)\s*=\s*range\(\s*(-?\d+)\s*,\s*(-?\d+)(?:\s*,\s*(-?\d+))?\s*\)/g;
+	let match: RegExpExecArray | null;
+	const formulaConfig: Map<string, { start: number; end: number; step: number }> = new Map();
+	while ((match = formulaConfigRegex.exec(text)) !== null) {
+		const varName = match[1];
+		const start = parseInt(match[2]);
+		const end = parseInt(match[3]);
+		const step = match[4] ? parseInt(match[4]) : 1;
+		console.log(`配置变量: ${varName}: start=${start}, end=${end}, step=${step}`);
+		formulaConfig.set(varName, { start, end, step });
+	}
+
+	documentCaches.set(document.uri.toString(), {
+		ranges,
+		formulaConfig
+	});
 	editor.setDecorations(decorationType, ranges);
 }
 
@@ -104,5 +119,5 @@ export function deactivate() {
 	if (decorationType) {
 		decorationType.dispose();
 	}
-	formulaRangesMap.clear();
+	documentCaches.clear();
 }

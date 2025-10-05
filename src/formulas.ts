@@ -1,5 +1,62 @@
+import * as vscode from 'vscode';
 import { JSAsciiTable } from './js-ascii-table.js';
+import { ExpressionParser, unpackArgs } from 'expressionparser'
 
+export interface CachedData {
+    ranges: vscode.Range[];
+    formulaConfig: Map<string, {
+        start: number;
+        end: number;
+        step: number;
+    }>;
+}
+export const documentCaches: Map<string, CachedData> = new Map();
+
+function buildParser(globals: any) {
+    const arithmeticLanguage = {
+        INFIX_OPS: {
+            '+': function (a: any, b: any) {
+                return a() + b();
+            },
+            '-': function (a: any, b: any) {
+                return a() - b();
+            },
+            '*': function (a: any, b: any) {
+                return a() * b();
+            },
+            '/': function (a: any, b: any) {
+                return a() / b();
+            },
+            '//': function (a: any, b: any) {
+                return Math.floor(a() / b());
+            },
+            '%': function (a: any, b: any) {
+                return a() % b();
+            },
+            '**': function (a: any, b: any) {
+                return a() ** b();
+            }
+        },
+        PREFIX_OPS: {
+        },
+        PRECEDENCE: [['**'], ['*', '/', '//', '%'], ['+', '-']],
+        GROUP_OPEN: '(',
+        GROUP_CLOSE: ')',
+        SEPARATORS: [','],
+        WHITESPACE_CHARS: [" "],
+        SYMBOLS: ['(', ')', '+', '-', '*', '/', '//', '%', '**', ','],
+        AMBIGUOUS: {},
+        ESCAPE_CHAR: '\\',
+        LITERAL_OPEN: '"',
+        LITERAL_CLOSE: '"',
+        termDelegate: function (term: string) {
+            if (term === 'x') return globals.x;
+            if (term === 'y') return globals.y;
+            return Number(term);
+        },
+    };
+    return new ExpressionParser(arithmeticLanguage);
+}
 
 function extractVariables(expr: string): string[] {
     const variables: Set<string> = new Set();
@@ -32,7 +89,7 @@ function replaceAllFromDict(formula: string, dict: { [key: string]: string }): s
     return formula;
 }
 
-export function previewFormula(formula: string): string {
+export function previewFormula(formula: string, cachedData: CachedData): string {
     // 提取变量及其位置
     const variables = extractVariables(formula);
     console.log('提取的变量:', variables);
@@ -47,28 +104,44 @@ export function previewFormula(formula: string): string {
         [variables[1] || '?']: 'y'
     });
     console.log(newFormula);
-    // x和y分别取值0-10
-    const xValues = Array.from({ length: 11 }, (_, i) => i);
-    let yValues = Array.from({ length: 11 }, (_, i) => i);
-    if (variables.length < 2) {
-        yValues = [0]; // 如果只有一个变量，则y固定为0
+
+    function getValues(varName: string): number[] {
+        if (Map.prototype.has.call(cachedData.formulaConfig, varName)) {
+            const config = cachedData.formulaConfig.get(varName)!;
+            const values = [];
+            for (let v = config.start; v < config.end; v += config.step) {
+                values.push(v);
+            }
+            return values;
+        } else {
+            return Array.from({ length: 11 }, (_, i) => i);
+        }
     }
+
+    let xValues: number[] = getValues(variables[0]);
+    let yValues: number[] = variables.length > 1 ? getValues(variables[1]) : [0];
+    console.log('xValues:', xValues);
+    console.log('yValues:', yValues);
 
     // 构建一个二维数组
     const data: string[][] = [];
     const leftTop = variables[0] + (variables[1] ? `/${variables[1]}` : '');
     data.push([leftTop, ...yValues.map(v => v.toString())]);
 
+    const globals: any = { x: 0, y: 0 };
+    const parser = buildParser(globals);
+
     for (const x of xValues) {
         const row: string[] = [x.toString()];
         for (const y of yValues) {
+            globals.x = x;
+            globals.y = y;
+
             try {
-                // eslint-disable-next-line no-eval
-                const result = (function (x: number, y: number) {
-                    return eval(newFormula);
-                })(x, y);
+                const result = parser.expressionToValue(newFormula);
                 row.push(result.toString());
             } catch (e) {
+                console.error('计算公式出错:', e);
                 row.push('-');
             }
         }
