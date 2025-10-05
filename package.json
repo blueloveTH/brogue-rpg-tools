@@ -1,0 +1,39 @@
+{
+	"name": "brogue-rpg-tools",
+	"displayName": "brogue-rpg-tools",
+	"description": "brogue-rpg项目的内部工具集",
+	"version": "0.0.1",
+	"publisher": "pocketpy",
+	"engines": {
+		"vscode": "^1.80.0"
+	},
+	"categories": [
+		"Other"
+	],
+	"icon": "icon.png",
+	"keywords": [
+		"python"
+	],
+	"markdown": "github",
+	"activationEvents": [
+		"onLanguage:python"
+	],
+	"main": "./out/extension.js",
+	"contributes": {},
+	"scripts": {
+		"vscode:prepublish": "npm run compile",
+		"compile": "tsc -p ./",
+		"watch": "tsc -watch -p ./"
+	},
+	"devDependencies": {
+		"@types/mocha": "^10.0.10",
+		"@types/node": "20.x",
+		"@types/vscode": "^1.80.0",
+		"typescript": "^5.7.3"
+	},
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/pocketpy/brogue-rpg-tools"
+	},
+	"license": "MIT"
+}
