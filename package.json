@@ -2,7 +2,7 @@
 	"name": "brogue-rpg-tools",
 	"displayName": "brogue-rpg-tools",
 	"description": "brogue-rpg项目的内部工具集",
-	"version": "0.1.2",
+	"version": "0.1.3",
 	"publisher": "pocketpy",
 	"engines": {
 		"vscode": "^1.80.0"

@@ -48,7 +48,7 @@ function buildParser(globals: any) {
                 return Math.round(a());
             },
         },
-        PRECEDENCE: [['**'], ['*', '/', '//', '%'], ['+', '-']],
+        PRECEDENCE: [['math.log', 'int', 'round'], ['**'], ['*', '/', '//', '%'], ['+', '-']],
         GROUP_OPEN: '(',
         GROUP_CLOSE: ')',
         SEPARATORS: [','],
