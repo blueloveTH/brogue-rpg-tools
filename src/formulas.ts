@@ -38,6 +38,15 @@ function buildParser(globals: any) {
             }
         },
         PREFIX_OPS: {
+            'math.log': function (a: any) {
+                return Math.log(a());
+            },
+            'int': function (a: any) {
+                return Math.floor(a());
+            },
+            'round': function (a: any) {
+                return Math.round(a());
+            },
         },
         PRECEDENCE: [['**'], ['*', '/', '//', '%'], ['+', '-']],
         GROUP_OPEN: '(',
@@ -64,9 +73,13 @@ function extractVariables(expr: string): string[] {
     // 匹配变量名：支持 a、a.b、a[0]、a[0].x 等
     const variableRegex = /[a-zA-Z_]\w*(?:\[\d+\])*(?:\.\w+)?/g;
 
+    const disallowedNames = new Set(['int', 'round']);
+
     let match: RegExpExecArray | null;
     while ((match = variableRegex.exec(expr)) !== null) {
         const varName = match[0];
+        if (varName.startsWith('math.')) continue;
+        if (disallowedNames.has(varName)) continue;
         const start = match.index;
         const end = start + varName.length;
 
